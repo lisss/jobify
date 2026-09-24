@@ -1,22 +1,24 @@
+"use client";
+
 import {
   useCallback,
   useEffect,
   useId,
   useRef,
   useState,
-  type KeyboardEvent,
-} from 'react'
+  KeyboardEvent,
+} from "react";
 
 type TypeaheadProps = {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  fetchSuggestions: (query: string) => Promise<string[]>
-  placeholder?: string
-  required?: boolean
-  id?: string
-  footerHint?: string
-}
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  fetchSuggestions: (query: string) => Promise<string[]>;
+  placeholder?: string;
+  required?: boolean;
+  id?: string;
+  footerHint?: string;
+};
 
 export function Typeahead({
   label,
@@ -28,73 +30,73 @@ export function Typeahead({
   id,
   footerHint,
 }: TypeaheadProps) {
-  const autoId = useId()
-  const inputId = id ?? autoId
-  const listId = `${inputId}-list`
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<string[]>([])
-  const [active, setActive] = useState(-1)
-  const [loading, setLoading] = useState(false)
+  const autoId = useId();
+  const inputId = id ?? autoId;
+  const listId = `${inputId}-list`;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<string[]>([]);
+  const [active, setActive] = useState(-1);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(
     async (q: string) => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const next = await fetchSuggestions(q)
-        setItems(next)
-        setActive(next.length ? 0 : -1)
+        const next = await fetchSuggestions(q);
+        setItems(next);
+        setActive(next.length ? 0 : -1);
       } catch {
-        setItems([])
-        setActive(-1)
+        setItems([]);
+        setActive(-1);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     },
     [fetchSuggestions],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const handle = window.setTimeout(() => {
-      void load(value)
-    }, 160)
-    return () => window.clearTimeout(handle)
-  }, [value, open, load])
+      void load(value);
+    }, 160);
+    return () => window.clearTimeout(handle);
+  }, [value, open, load]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!rootRef.current?.contains(e.target as Node)) {
-        setOpen(false)
+        setOpen(false);
       }
     }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [])
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
 
   function select(item: string) {
-    onChange(item)
-    setOpen(false)
+    onChange(item);
+    setOpen(false);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      setOpen(true)
-      return
+    if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      setOpen(true);
+      return;
     }
-    if (!open) return
+    if (!open) return;
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActive((i) => (items.length ? (i + 1) % items.length : -1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((i) => (items.length ? (i - 1 + items.length) % items.length : -1))
-    } else if (e.key === 'Enter' && active >= 0 && items[active]) {
-      e.preventDefault()
-      select(items[active])
-    } else if (e.key === 'Escape') {
-      setOpen(false)
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (items.length ? (i + 1) % items.length : -1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (items.length ? (i - 1 + items.length) % items.length : -1));
+    } else if (e.key === "Enter" && active >= 0 && items[active]) {
+      e.preventDefault();
+      select(items[active]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
     }
   }
 
@@ -116,8 +118,8 @@ export function Typeahead({
         autoComplete="off"
         onFocus={() => setOpen(true)}
         onChange={(e) => {
-          onChange(e.target.value)
-          setOpen(true)
+          onChange(e.target.value);
+          setOpen(true);
         }}
         onKeyDown={onKeyDown}
         className="w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-[15px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]"
@@ -138,14 +140,14 @@ export function Typeahead({
               role="option"
               aria-selected={index === active}
               onMouseDown={(e) => {
-                e.preventDefault()
-                select(item)
+                e.preventDefault();
+                select(item);
               }}
               onMouseEnter={() => setActive(index)}
               className={`cursor-pointer px-3.5 py-2 text-[15px] ${
                 index === active
-                  ? 'bg-[var(--surface-soft)] text-[var(--ink)]'
-                  : 'text-[var(--ink)]'
+                  ? "bg-[var(--surface-soft)] text-[var(--ink)]"
+                  : "text-[var(--ink)]"
               }`}
             >
               {item}
@@ -159,5 +161,5 @@ export function Typeahead({
         </ul>
       )}
     </div>
-  )
+  );
 }

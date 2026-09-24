@@ -1,20 +1,20 @@
-import type { InsightsResponse, Resource } from '@/lib/api'
+import { InsightsResponse, Resource } from "@/lib/api";
 
 function SectionTitle({
   children,
   prominent = false,
 }: {
-  children: React.ReactNode
-  prominent?: boolean
+  children: React.ReactNode;
+  prominent?: boolean;
 }) {
   if (prominent) {
     return (
       <h3 className="text-2xl font-bold tracking-tight text-[var(--ink)] sm:text-[1.65rem]">
         {children}
       </h3>
-    )
+    );
   }
-  return <h3 className="text-lg font-semibold tracking-tight">{children}</h3>
+  return <h3 className="text-lg font-semibold tracking-tight">{children}</h3>;
 }
 
 function ResourceList({
@@ -23,10 +23,10 @@ function ResourceList({
   empty,
   prominent = false,
 }: {
-  title: string
-  items: Resource[]
-  empty: string
-  prominent?: boolean
+  title: string;
+  items: Resource[];
+  empty: string;
+  prominent?: boolean;
 }) {
   return (
     <section>
@@ -53,7 +53,7 @@ function ResourceList({
                 <p className="font-medium">{item.title}</p>
               )}
               <p className="mt-1 text-sm text-[var(--muted)]">
-                {[item.provider, item.description].filter(Boolean).join(' — ')}
+                {[item.provider, item.description].filter(Boolean).join(" — ")}
               </p>
               {item.estimated_hours != null && (
                 <p className="mt-1 text-xs text-[var(--ok)]">~{item.estimated_hours}h</p>
@@ -63,17 +63,17 @@ function ResourceList({
         </ul>
       )}
     </section>
-  )
+  );
 }
 
 export function InsightsPanel({
   data,
   showCvGaps = false,
 }: {
-  data: InsightsResponse
-  showCvGaps?: boolean
+  data: InsightsResponse;
+  showCvGaps?: boolean;
 }) {
-  const maxImportance = Math.max(...data.requirements.map((s) => s.percentage), 1)
+  const maxImportance = Math.max(...data.requirements.map((s) => s.percentage), 1);
 
   return (
     <div className="space-y-10">
@@ -81,11 +81,11 @@ export function InsightsPanel({
         <p className="text-sm text-[var(--muted)]">Position</p>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {data.query}
-          {data.location ? ` · ${data.location}` : ''}
+          {data.location ? ` · ${data.location}` : ""}
         </h2>
       </div>
 
-      <div className={`grid gap-8 ${showCvGaps ? 'lg:grid-cols-2' : ''}`}>
+      <div className={`grid gap-8 ${showCvGaps ? "lg:grid-cols-2" : ""}`}>
         <section>
           <SectionTitle prominent>Requirements</SectionTitle>
           <p className="mt-1 text-sm text-[var(--muted)]">
@@ -144,12 +144,12 @@ export function InsightsPanel({
           {data.roadmap.map((step) => (
             <li key={step.order} className="grid gap-2 sm:grid-cols-[2.5rem_1fr]">
               <span className="text-lg font-medium text-[var(--muted)]">
-                {String(step.order).padStart(2, '0')}
+                {String(step.order).padStart(2, "0")}
               </span>
               <div>
                 <p className="font-medium">{step.title}</p>
                 <p className="text-sm text-[var(--muted)]">
-                  {step.skills.join(' · ')} · ~{step.estimated_hours}h
+                  {step.skills.join(" · ")} · ~{step.estimated_hours}h
                 </p>
               </div>
             </li>
@@ -182,5 +182,5 @@ export function InsightsPanel({
         />
       </div>
     </div>
-  )
+  );
 }
