@@ -49,6 +49,8 @@ SKILL_ALIASES: dict[str, str] = {
     "rust": "Rust",
     "c++": "C++",
     "c#": "C#",
+    "f#": "F#",
+    "haskell": "Haskell",
     ".net": ".NET",
     "linux": "Linux",
     "terraform": "Terraform",
@@ -104,12 +106,47 @@ def skill_frequency(job_skill_lists: list[list[str]]) -> list[tuple[str, int, fl
     return [(skill, count, round(100.0 * count / total, 1)) for skill, count in ranked]
 
 
+def canonicalize_cv_skill(raw: str) -> str | None:
+    text = raw.strip()
+    if not text:
+        return None
+    return normalize_skill(text) or text
+
+
+def classify_cv_against_requirements(
+    top_skills: list[tuple[str, int, float]],
+    cv_skills: list[str],
+) -> tuple[list[str], list[str]]:
+    """Return (matched requirement names, unmatched CV skills)."""
+    req_by_lower = {skill.lower(): skill for skill, _, _ in top_skills}
+    matched: list[str] = []
+    unmatched: list[str] = []
+    seen_matched: set[str] = set()
+    seen_unmatched: set[str] = set()
+
+    for raw in cv_skills:
+        canonical = canonicalize_cv_skill(raw)
+        if not canonical:
+            continue
+        key = canonical.lower()
+        if key in req_by_lower:
+            name = req_by_lower[key]
+            if name not in seen_matched:
+                seen_matched.add(name)
+                matched.append(name)
+        elif key not in seen_unmatched:
+            seen_unmatched.add(key)
+            unmatched.append(canonical)
+    return matched, unmatched
+
+
 def missing_skills(
     top_skills: list[tuple[str, int, float]],
     cv_skills: list[str],
     min_percentage: float = 20.0,
 ) -> list[tuple[str, int, float]]:
-    cv_normalized = {normalize_skill(s) or s.strip() for s in cv_skills if s.strip()}
+    cv_normalized = {canonicalize_cv_skill(s) for s in cv_skills}
+    cv_normalized = {s for s in cv_normalized if s}
     if not cv_normalized:
         # No CV / skills provided — do not invent gaps
         return []

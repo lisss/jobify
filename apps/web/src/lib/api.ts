@@ -26,7 +26,9 @@ export type InsightsResponse = {
   query: string
   location: string
   requirements: SkillStat[]
+  matched_skills: string[]
   missing_skills: SkillStat[]
+  unmatched_cv_skills: string[]
   interview_questions: Resource[]
   books: Resource[]
   courses: Resource[]

@@ -14,8 +14,12 @@ from app.models.schemas import (
 from app.services.cv import extract_skills_from_cv_text, extract_text_from_pdf
 from app.services.jobs import suggest_locations
 from app.services.roles import requirements_for_role, suggest_role_titles
-from app.services.resources import build_roadmap, resources_for
-from app.services.skills import missing_skills
+from app.services.resources import build_roadmap, gather_online_resources
+from app.services.skills import (
+    canonicalize_cv_skill,
+    classify_cv_against_requirements,
+    missing_skills,
+)
 
 router = APIRouter()
 
@@ -42,24 +46,28 @@ def location_suggestions(q: str = "", limit: int = 40, session: Session = Depend
 
 @router.post("/insights", response_model=InsightsResponse)
 def insights(body: InsightsRequest) -> InsightsResponse:
-    """Requirements + learning materials for a role — no job matching."""
+    """Role requirements + live online learning materials for role + skills."""
     reqs = requirements_for_role(body.query)
-    # Adapt to missing_skills / roadmap helpers: (skill, count, percentage)
     top = [(skill, 1, pct) for skill, pct in reqs]
+    stack = [s for s in (canonicalize_cv_skill(x) for x in body.cv_skills) if s]
+    matched, unmatched = classify_cv_against_requirements(top, body.cv_skills)
     gaps = missing_skills(top, body.cv_skills, min_percentage=0.0)
-    focus = [skill for skill, _ in reqs]
+    gap_names = [skill for skill, _, _ in gaps]
 
-    roadmap, study_hours = build_roadmap(top, body.cv_skills)
+    bundle = gather_online_resources(body.query, stack, gap_names)
+    roadmap, study_hours = build_roadmap(body.query, top, body.cv_skills, bundle=bundle)
 
     return InsightsResponse(
         query=body.query,
         location=body.location,
         requirements=[SkillStat(skill=s, count=1, percentage=p) for s, p in reqs],
+        matched_skills=matched,
         missing_skills=[SkillStat(skill=s, count=c, percentage=p) for s, c, p in gaps],
-        interview_questions=resources_for(focus, "interview"),
-        books=resources_for(focus, "book"),
-        courses=resources_for(focus, "course"),
-        certifications=resources_for(focus, "certification"),
+        unmatched_cv_skills=unmatched,
+        interview_questions=bundle["interview_questions"],
+        books=bundle["books"],
+        courses=bundle["courses"],
+        certifications=bundle["certifications"],
         roadmap=roadmap,
         estimated_study_hours=study_hours,
     )

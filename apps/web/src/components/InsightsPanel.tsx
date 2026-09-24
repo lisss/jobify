@@ -74,6 +74,11 @@ export function InsightsPanel({
   showCvGaps?: boolean
 }) {
   const maxImportance = Math.max(...data.requirements.map((s) => s.percentage), 1)
+  const matched = new Set(data.matched_skills ?? [])
+  const stackSkills = [
+    ...(data.matched_skills ?? []),
+    ...(data.unmatched_cv_skills ?? []),
+  ]
 
   return (
     <div className="space-y-10">
@@ -85,36 +90,66 @@ export function InsightsPanel({
         </h2>
       </div>
 
+      {showCvGaps && stackSkills.length > 0 && (
+        <div className="rounded-2xl border border-[var(--line)] bg-white px-5 py-4 sm:px-6">
+          <p className="text-sm text-[var(--ink)]">
+            Learning path personalized for:{' '}
+            <span className="font-medium">{stackSkills.join(', ')}</span>
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Materials mix your stack with what this role typically still needs.
+          </p>
+        </div>
+      )}
+
       <div className={`grid gap-8 ${showCvGaps ? 'lg:grid-cols-2' : ''}`}>
         <section>
-          <SectionTitle prominent>Requirements</SectionTitle>
+          <SectionTitle prominent>Role requirements</SectionTitle>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Typical skills for this role, ranked by importance.
+            {showCvGaps
+              ? 'Typical skills for this position. Covered means you already listed them.'
+              : 'Typical skills for this position, ranked by importance.'}
           </p>
           <ul className="mt-4 space-y-3">
-            {data.requirements.map((skill) => (
-              <li key={skill.skill}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="font-medium">{skill.skill}</span>
-                  <span className="text-[var(--muted)]">{skill.percentage}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
-                  <div
-                    className="skill-bar h-full rounded-full bg-[var(--ok)]"
-                    style={{ width: `${(skill.percentage / maxImportance) * 100}%` }}
-                  />
-                </div>
-              </li>
-            ))}
+            {data.requirements.map((skill) => {
+              const covered = showCvGaps && matched.has(skill.skill)
+              return (
+                <li key={skill.skill}>
+                  <div className="mb-1 flex justify-between gap-3 text-sm">
+                    <span className="font-medium">
+                      {skill.skill}
+                      {showCvGaps && (
+                        <span
+                          className={`ml-2 text-xs font-normal ${
+                            covered ? 'text-[var(--ok)]' : 'text-[var(--muted)]'
+                          }`}
+                        >
+                          {covered ? 'covered' : 'gap'}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-[var(--muted)]">{skill.percentage}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
+                    <div
+                      className={`skill-bar h-full rounded-full ${
+                        covered ? 'bg-[var(--ok)]' : 'bg-[var(--accent)]'
+                      }`}
+                      style={{ width: `${(skill.percentage / maxImportance) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </section>
 
         {showCvGaps && (
           <section>
-            <SectionTitle>Missing from your CV</SectionTitle>
+            <SectionTitle>Still to learn for this role</SectionTitle>
             {data.missing_skills.length === 0 ? (
               <p className="mt-3 text-sm text-[var(--muted)]">
-                No major gaps — your skills cover these requirements.
+                No major role gaps — focus on deepening your stack below.
               </p>
             ) : (
               <ul className="mt-4 flex flex-wrap gap-2">
@@ -140,6 +175,11 @@ export function InsightsPanel({
             ~{data.estimated_study_hours} hours estimated
           </p>
         </div>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          {showCvGaps
+            ? 'Starts from your skills, then covers role gaps.'
+            : 'Based on typical requirements for this role.'}
+        </p>
         <ol className="mt-6 space-y-5">
           {data.roadmap.map((step) => (
             <li key={step.order} className="grid gap-2 sm:grid-cols-[2.5rem_1fr]">
@@ -161,19 +201,19 @@ export function InsightsPanel({
         <ResourceList
           title="Books"
           items={data.books}
-          empty="No books matched for these requirements yet."
+          empty="No books matched this role and skill mix yet."
           prominent
         />
         <ResourceList
           title="Courses"
           items={data.courses}
-          empty="No courses matched for these requirements yet."
+          empty="No courses matched this role and skill mix yet."
           prominent
         />
         <ResourceList
           title="Certifications"
           items={data.certifications}
-          empty="No certifications matched for this role."
+          empty="No certifications matched this role and skill mix."
         />
         <ResourceList
           title="Interview questions"

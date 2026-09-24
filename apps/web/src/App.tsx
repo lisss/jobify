@@ -12,33 +12,41 @@ import { Typeahead } from '@/components/Typeahead'
 export default function App() {
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
-  const [cvSkills, setCvSkills] = useState<string[]>([])
   const [cvText, setCvText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [insights, setInsights] = useState<InsightsResponse | null>(null)
   const [hasCvInput, setHasCvInput] = useState(false)
+  const [resultKey, setResultKey] = useState(0)
 
   const loadRoles = useCallback((q: string) => suggestRoles(q), [])
   const loadLocations = useCallback((q: string) => suggestLocations(q), [])
+
+  function skillsFromTextarea(text: string): string[] {
+    return Array.from(
+      new Set(
+        text
+          .split(/[,;\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    )
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      const skillsFromText = cvText
-        .split(/[,;\n]/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const merged = Array.from(new Set([...cvSkills, ...skillsFromText]))
+      const skills = skillsFromTextarea(cvText)
       const data = await fetchInsights({
         query,
         location,
-        cv_skills: merged,
+        cv_skills: skills,
       })
-      setHasCvInput(merged.length > 0)
+      setHasCvInput(skills.length > 0)
       setInsights(data)
+      setResultKey((k) => k + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -51,7 +59,6 @@ export default function App() {
     setError(null)
     try {
       const skills = await parseCv(file)
-      setCvSkills(skills)
       setCvText(skills.join(', '))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'CV parse failed')
@@ -72,8 +79,8 @@ export default function App() {
           See what a role needs — and what to learn next.
         </h1>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-[var(--muted)] sm:text-base">
-          Pick a position to get typical requirements, then books, courses, and a
-          study roadmap. Optionally compare against your CV.
+          Pick a position and your skills. We look up books, courses, and
+          interview material online for that mix.
         </p>
 
         <form onSubmit={onSubmit} className="relative mt-8 space-y-4">
@@ -113,8 +120,14 @@ export default function App() {
               <textarea
                 value={cvText}
                 onChange={(e) => setCvText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    e.currentTarget.form?.requestSubmit()
+                  }
+                }}
                 rows={3}
-                placeholder="React, TypeScript, Node.js…"
+                placeholder="Python, Docker, SQL…"
                 className="w-full resize-y rounded-xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-[15px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]"
               />
             </label>
@@ -142,7 +155,7 @@ export default function App() {
       </section>
 
       {insights && (
-        <div className="animate-fade mt-12">
+        <div key={resultKey} className="animate-fade mt-12">
           <InsightsPanel data={insights} showCvGaps={hasCvInput} />
         </div>
       )}
