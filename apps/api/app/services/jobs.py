@@ -303,43 +303,30 @@ def suggest_roles(
     return listings
 
 
-def suggest_locations(session: Session, q: str = "", limit: int = 10) -> list[str]:
-    curated = [
-        "Remote",
-        "Remote US",
-        "Remote Europe",
-        "Worldwide",
-        "Berlin",
-        "London",
-        "Amsterdam",
-        "Paris",
-        "Dublin",
-        "Lisbon",
-        "New York",
-        "San Francisco",
-        "Seattle",
-        "Austin",
-        "Toronto",
-        "Warsaw",
-        "Munich",
-        "Stockholm",
-        "Singapore",
-        "Tokyo",
-    ]
-    locations = [loc for loc in session.exec(select(Job.location)).all() if loc]
-    # Flatten multi-value locations like "Berlin, Germany"
-    expanded: list[str] = []
-    for loc in locations:
-        expanded.append(loc)
-        for part in loc.replace("/", ",").split(","):
-            part = part.strip()
-            if part:
-                expanded.append(part)
-    pool = list(dict.fromkeys([*curated, *expanded]))
+def suggest_locations(session: Session, q: str = "", limit: int = 40) -> list[str]:
+    from app.services.locations import _is_excluded_label, suggest_city_locations
+
+    # Library catalog (Remote + main cities/countries)
+    results = suggest_city_locations(q=q, limit=limit)
+
+    # Merge any locations already seen in scraped jobs
     needle = q.strip().lower()
-    if needle:
-        pool = [t for t in pool if needle in t.lower()]
-    return pool[:limit]
+    job_locs = [loc for loc in session.exec(select(Job.location)).all() if loc]
+    extras: list[str] = []
+    for loc in job_locs:
+        parts = [loc, *[p.strip() for p in loc.replace("/", ",").split(",") if p.strip()]]
+        for part in parts:
+            if _is_excluded_label(part) or any(
+                blocked in part.lower() for blocked in ("russia", "belarus")
+            ):
+                continue
+            if needle and needle not in part.lower():
+                continue
+            if part not in results and part not in extras:
+                extras.append(part)
+
+    merged = list(dict.fromkeys([*results, *extras]))
+    return merged[:limit]
 
 
 def search_jobs(

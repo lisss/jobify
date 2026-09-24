@@ -126,7 +126,7 @@ export function Typeahead({
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-30 mt-1.5 max-h-56 w-full overflow-auto rounded-xl border border-[var(--line)] bg-white py-1 shadow-[0_12px_32px_rgba(15,23,22,0.08)]"
+          className="absolute z-30 mt-1.5 max-h-80 w-full overflow-auto rounded-xl border border-[var(--line)] bg-white py-1 shadow-[0_12px_32px_rgba(15,23,22,0.08)]"
         >
           {loading && items.length === 0 && (
             <li className="px-3.5 py-2 text-sm text-[var(--muted)]">Searching…</li>
@@ -151,6 +151,11 @@ export function Typeahead({
               {item}
             </li>
           ))}
+          {!loading && items.length > 0 && (
+            <li className="border-t border-[var(--line)] px-3.5 py-2 text-xs text-[var(--muted)]">
+              Type to narrow cities worldwide
+            </li>
+          )}
         </ul>
       )}
     </div>

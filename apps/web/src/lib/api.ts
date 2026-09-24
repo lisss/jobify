@@ -109,7 +109,7 @@ export async function suggestRoles(query: string): Promise<RoleSuggestion[]> {
 
 export async function suggestLocations(query: string): Promise<string[]> {
   const res = await fetch(
-    `${API_URL}/api/suggest/locations?q=${encodeURIComponent(query)}&limit=8`,
+    `${API_URL}/api/suggest/locations?q=${encodeURIComponent(query)}&limit=50`,
   );
   if (!res.ok) return [];
   const data = (await res.json()) as { suggestions: string[] };

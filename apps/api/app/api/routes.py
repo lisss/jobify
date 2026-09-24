@@ -87,8 +87,8 @@ async def role_suggestions(
 
 
 @router.get("/suggest/locations")
-def location_suggestions(q: str = "", limit: int = 8, session: Session = Depends(get_session)) -> dict:
-    return {"suggestions": suggest_locations(session, q=q, limit=limit)}
+def location_suggestions(q: str = "", limit: int = 40, session: Session = Depends(get_session)) -> dict:
+    return {"suggestions": suggest_locations(session, q=q, limit=min(max(limit, 1), 80))}
 
 
 @router.post("/insights", response_model=InsightsResponse)
