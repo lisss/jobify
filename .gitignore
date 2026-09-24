@@ -1,0 +1,40 @@
+# Python
+apps/api/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg
+
+# Node
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Misc
+dist/
+coverage/
+.turbo/
+*.log
+Uploads/
+apps/api/uploads/
+apps/api/jobify.db
+*.db

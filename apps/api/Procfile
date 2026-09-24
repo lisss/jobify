@@ -1,0 +1,5 @@
+# Deploy this directory as a Railway/Render service.
+# Start: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# Env: DATABASE_URL, API_CORS_ORIGINS, ADZUNA_APP_ID, ADZUNA_APP_KEY
+
+web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
