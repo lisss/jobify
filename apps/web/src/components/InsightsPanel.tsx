@@ -1,15 +1,5 @@
 import { InsightsResponse, Resource } from "@/lib/api";
 
-function formatSalary(job: InsightsResponse["jobs"][number]) {
-  if (job.salary_min == null && job.salary_max == null) return "—";
-  const cur = job.currency || "USD";
-  if (job.salary_min != null && job.salary_max != null) {
-    return `${cur} ${Math.round(job.salary_min / 1000)}k–${Math.round(job.salary_max / 1000)}k`;
-  }
-  const v = job.salary_min ?? job.salary_max ?? 0;
-  return `${cur} ${Math.round(v / 1000)}k`;
-}
-
 function SectionTitle({
   children,
   prominent = false,
@@ -76,31 +66,33 @@ function ResourceList({
   );
 }
 
-export function InsightsPanel({ data }: { data: InsightsResponse }) {
-  const maxSkill = Math.max(...data.top_skills.map((s) => s.percentage), 1);
-  const maxSalaryCount = Math.max(...data.salary_distribution.map((b) => b.count), 1);
+export function InsightsPanel({
+  data,
+  showCvGaps = false,
+}: {
+  data: InsightsResponse;
+  showCvGaps?: boolean;
+}) {
+  const maxImportance = Math.max(...data.requirements.map((s) => s.percentage), 1);
 
   return (
     <div className="space-y-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-[var(--muted)]">Insights for</p>
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            {data.query}
-            {data.location ? ` · ${data.location}` : ""}
-          </h2>
-        </div>
-        <div className="rounded-xl bg-[var(--surface-soft)] px-4 py-3 text-[var(--ink)]">
-          <p className="text-xl font-semibold">{data.job_count}</p>
-          <p className="text-xs text-[var(--muted)]">jobs matched</p>
-        </div>
+      <div>
+        <p className="text-sm text-[var(--muted)]">Position</p>
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          {data.query}
+          {data.location ? ` · ${data.location}` : ""}
+        </h2>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className={`grid gap-8 ${showCvGaps ? "lg:grid-cols-2" : ""}`}>
         <section>
-          <SectionTitle>Skills in these jobs</SectionTitle>
+          <SectionTitle prominent>Requirements</SectionTitle>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Typical skills for this role, ranked by importance.
+          </p>
           <ul className="mt-4 space-y-3">
-            {data.top_skills.slice(0, 12).map((skill) => (
+            {data.requirements.map((skill) => (
               <li key={skill.skill}>
                 <div className="mb-1 flex justify-between text-sm">
                   <span className="font-medium">{skill.skill}</span>
@@ -109,7 +101,7 @@ export function InsightsPanel({ data }: { data: InsightsResponse }) {
                 <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
                   <div
                     className="skill-bar h-full rounded-full bg-[var(--ok)]"
-                    style={{ width: `${(skill.percentage / maxSkill) * 100}%` }}
+                    style={{ width: `${(skill.percentage / maxImportance) * 100}%` }}
                   />
                 </div>
               </li>
@@ -117,52 +109,28 @@ export function InsightsPanel({ data }: { data: InsightsResponse }) {
           </ul>
         </section>
 
-        <section>
-          <SectionTitle>Missing from your CV</SectionTitle>
-          {data.missing_skills.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--muted)]">
-              No major gaps detected — your listed skills cover the frequent ones.
-            </p>
-          ) : (
-            <ul className="mt-4 flex flex-wrap gap-2">
-              {data.missing_skills.map((skill) => (
-                <li
-                  key={skill.skill}
-                  className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm"
-                >
-                  <span className="font-medium">{skill.skill}</span>
-                  <span className="ml-2 text-[var(--muted)]">{skill.percentage}%</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-8">
-            <SectionTitle>Salary distribution</SectionTitle>
-          </div>
-          {data.salary_distribution.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--muted)]">
-              Not enough salary data in this sample.
-            </p>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {data.salary_distribution.map((bucket) => (
-                <li key={bucket.label}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span>{bucket.label}</span>
-                    <span className="text-[var(--muted)]">{bucket.count}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
-                    <div
-                      className="skill-bar h-full rounded-full bg-[var(--accent)]"
-                      style={{ width: `${(bucket.count / maxSalaryCount) * 100}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {showCvGaps && (
+          <section>
+            <SectionTitle>Missing from your CV</SectionTitle>
+            {data.missing_skills.length === 0 ? (
+              <p className="mt-3 text-sm text-[var(--muted)]">
+                No major gaps — your skills cover these requirements.
+              </p>
+            ) : (
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {data.missing_skills.map((skill) => (
+                  <li
+                    key={skill.skill}
+                    className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm"
+                  >
+                    <span className="font-medium">{skill.skill}</span>
+                    <span className="ml-2 text-[var(--muted)]">{skill.percentage}%</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
 
       <section className="rounded-2xl border border-[var(--line)] bg-white px-6 py-7 sm:px-8">
@@ -193,19 +161,19 @@ export function InsightsPanel({ data }: { data: InsightsResponse }) {
         <ResourceList
           title="Books"
           items={data.books}
-          empty="No books matched yet."
+          empty="No books matched for these requirements yet."
           prominent
         />
         <ResourceList
           title="Courses"
           items={data.courses}
-          empty="No courses matched yet."
+          empty="No courses matched for these requirements yet."
           prominent
         />
         <ResourceList
           title="Certifications"
           items={data.certifications}
-          empty="No certifications matched — often a good sign they don’t matter for this cluster."
+          empty="No certifications matched for this role."
         />
         <ResourceList
           title="Interview questions"
@@ -213,37 +181,6 @@ export function InsightsPanel({ data }: { data: InsightsResponse }) {
           empty="No interview prompts yet."
         />
       </div>
-
-      <section>
-        <SectionTitle>Matching jobs</SectionTitle>
-        <ul className="mt-4 divide-y divide-[var(--line)]">
-          {data.jobs.slice(0, 20).map((job) => (
-            <li
-              key={job.id}
-              className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between"
-            >
-              <div>
-                {job.url ? (
-                  <a
-                    href={job.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium underline decoration-[var(--line)] underline-offset-4 hover:decoration-[var(--accent)]"
-                  >
-                    {job.title}
-                  </a>
-                ) : (
-                  <p className="font-medium">{job.title}</p>
-                )}
-                <p className="text-sm text-[var(--muted)]">
-                  {job.company} · {job.location || "—"} · {job.source}
-                </p>
-              </div>
-              <p className="text-sm">{formatSalary(job)}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }

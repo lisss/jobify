@@ -189,120 +189,6 @@ def seniority_rank(title: str) -> int:
     return 3
 
 
-def suggest_roles(
-    session: Session,
-    q: str = "",
-    limit: int = 10,
-    marketplace_first: list[dict] | None = None,
-) -> list[dict]:
-    """Return live job listings (with marketplace URLs) matching the query."""
-    needle = q.strip()
-    candidates: list[dict] = []
-    seen_titles: set[str] = set()
-
-    def title_ok(title: str) -> bool:
-        if not needle:
-            return True
-        tokens = [t for t in re.split(r"[\s,/|+]+", needle.lower()) if len(t) >= 2]
-        return all(
-            re.search(rf"(?<![a-z0-9]){re.escape(tok)}(?![a-z0-9])", title, re.I) for tok in tokens
-        )
-
-    def push(item: dict) -> None:
-        title = (item.get("title") or "").strip()
-        url = item.get("url") or ""
-        if not title or not url:
-            return
-        if not title_ok(title):
-            return
-        key = title.lower()
-        if key in seen_titles:
-            return
-        seen_titles.add(key)
-        candidates.append(
-            {
-                "id": item.get("id"),
-                "title": title,
-                "company": item.get("company") or "",
-                "location": item.get("location") or "",
-                "url": url,
-                "source": item.get("source") or "",
-            }
-        )
-
-    for item in marketplace_first or []:
-        push(item)
-
-    like = f"%{needle}%" if needle else "%"
-    title_jobs = list(
-        session.exec(
-            select(Job)
-            .where(col(Job.title).ilike(like), col(Job.url) != "")
-            .order_by(col(Job.created_at).desc())
-            .limit(max(limit * 6, 60))
-        ).all()
-    )
-    for job in title_jobs:
-        push(
-            {
-                "id": job.id,
-                "title": job.title,
-                "company": job.company,
-                "location": job.location,
-                "url": job.url,
-                "source": job.source,
-            }
-        )
-
-    candidates.sort(
-        key=lambda item: (
-            seniority_rank(item["title"]),
-            0 if item.get("source") not in {"sample", "suggestion"} else 1,
-            item["title"].lower(),
-        )
-    )
-    listings = candidates[:limit]
-
-    # Curated labels only when boards returned nothing usable
-    if not listings:
-        curated = [
-            "Senior Software Engineer",
-            "Mid-level Software Engineer",
-            "Software Engineer",
-            "Senior Frontend Engineer",
-            "Frontend Engineer",
-            "Senior Backend Engineer",
-            "Backend Engineer",
-            "Full Stack Engineer",
-            "Senior React Engineer",
-            "React Engineer",
-            "React Developer",
-            "Python Developer",
-            "DevOps Engineer",
-            "Data Engineer",
-            "ML Engineer",
-            "Platform Engineer",
-        ]
-        lower = needle.lower()
-        for title in curated:
-            if lower and lower not in title.lower():
-                continue
-            listings.append(
-                {
-                    "id": None,
-                    "title": title,
-                    "company": "",
-                    "location": "",
-                    "url": "",
-                    "source": "suggestion",
-                }
-            )
-            if len(listings) >= limit:
-                break
-
-    return listings
-
-
 def suggest_locations(session: Session, q: str = "", limit: int = 40) -> list[str]:
     from app.services.locations import _is_excluded_label, suggest_city_locations
 
@@ -329,6 +215,80 @@ def suggest_locations(session: Session, q: str = "", limit: int = 40) -> list[st
     return merged[:limit]
 
 
+ROLE_STOPWORDS = {
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "of",
+    "for",
+    "to",
+    "in",
+    "engineer",
+    "engineers",
+    "developer",
+    "developers",
+    "programmer",
+    "specialist",
+    "expert",
+    "lead",
+    "senior",
+    "junior",
+    "mid",
+    "mid-level",
+    "middle",
+    "level",
+    "staff",
+    "principal",
+    "sr",
+    "jr",
+}
+
+
+def significant_role_tokens(query: str) -> list[str]:
+    """Tech/domain tokens from a role title (drops generic words like Engineer)."""
+    return [
+        t
+        for t in re.split(r"[\s,/|+]+", query.strip())
+        if t and t.lower() not in ROLE_STOPWORDS and len(t) >= 2
+    ]
+
+
+def title_relevance(query: str, title: str) -> int:
+    """Higher = better title match for the selected role."""
+    title_l = (title or "").lower()
+    query_l = query.strip().lower()
+    if not query_l:
+        return 0
+    score = 0
+    if title_l == query_l:
+        score += 1000
+    if query_l in title_l:
+        score += 400
+    sig = significant_role_tokens(query)
+    if sig:
+        hits = sum(1 for t in sig if re.search(rf"(?<![a-z0-9]){re.escape(t.lower())}(?![a-z0-9])", title_l))
+        score += hits * 120
+        if hits == len(sig):
+            score += 300
+        # Penalize titles that add unrelated major stacks when query is specific
+        if hits == len(sig):
+            extras = ("react", "angular", "vue", "frontend", "mobile", "ios", "android")
+            query_joined = " ".join(sig).lower()
+            for extra in extras:
+                if extra not in query_joined and re.search(rf"(?<![a-z0-9]){extra}(?![a-z0-9])", title_l):
+                    score -= 80
+    # Generic token overlap (engineer etc.) as weak signal
+    for tok in query.split():
+        if tok.lower() in ROLE_STOPWORDS:
+            if tok.lower() in title_l:
+                score += 5
+        elif re.search(rf"(?<![a-z0-9]){re.escape(tok.lower())}(?![a-z0-9])", title_l):
+            score += 40
+    return score
+
+
 def search_jobs(
     session: Session,
     query: str,
@@ -337,30 +297,152 @@ def search_jobs(
 ) -> list[Job]:
     statement = select(Job)
     filters = []
-    tokens = [t for t in query.split() if t.strip()]
-    for token in tokens:
+    sig = significant_role_tokens(query)
+    # Prefer matching distinctive role tokens; fall back to full token AND
+    match_tokens = sig or [t for t in query.split() if t.strip()]
+    for token in match_tokens:
         like = f"%{token}%"
         filters.append(
             or_(
                 col(Job.title).ilike(like),
                 col(Job.description).ilike(like),
-                col(Job.company).ilike(like),
             )
         )
     if location:
         filters.append(col(Job.location).ilike(f"%{location}%"))
     if filters:
         statement = statement.where(*filters)
-    # Fetch a wider pool, then prefer mid/senior titles over staff/exec
-    statement = statement.order_by(col(Job.created_at).desc()).limit(max(limit * 3, 80))
+    statement = statement.order_by(col(Job.created_at).desc()).limit(max(limit * 4, 100))
     jobs = list(session.exec(statement).all())
-    jobs.sort(key=lambda j: (seniority_rank(j.title), j.title.lower()))
-    return jobs[:limit]
+
+    # Strong title matches first (all significant tokens in title)
+    strong = [
+        j
+        for j in jobs
+        if sig
+        and all(
+            re.search(rf"(?<![a-z0-9]){re.escape(t.lower())}(?![a-z0-9])", (j.title or "").lower())
+            for t in sig
+        )
+    ]
+    pool = strong if len(strong) >= min(3, limit) else jobs
+
+    pool.sort(
+        key=lambda j: (
+            -title_relevance(query, j.title or ""),
+            seniority_rank(j.title or ""),
+            (j.title or "").lower(),
+        )
+    )
+    # Drop weak matches when we have strong ones
+    if strong:
+        pool = [j for j in pool if title_relevance(query, j.title or "") >= 200] or pool
+    return pool[:limit]
 
 
-def salary_distribution(jobs: list[Job], buckets: int = 5) -> list[dict]:
+def currency_for_location(location: str) -> str:
+    """Pick a display currency from the user's location filter."""
+    loc = (location or "").lower()
+    if not loc:
+        return "USD"
+    if any(
+        k in loc
+        for k in (
+            "united kingdom",
+            "uk",
+            "england",
+            "scotland",
+            "wales",
+            "northern ireland",
+            "london",
+            "manchester",
+            "birmingham",
+            "edinburgh",
+            "glasgow",
+            "bristol",
+            "leeds",
+            "britain",
+            "british",
+        )
+    ):
+        return "GBP"
+    if any(
+        k in loc
+        for k in (
+            "euro",
+            "germany",
+            "france",
+            "netherlands",
+            "spain",
+            "italy",
+            "portugal",
+            "ireland",
+            "belgium",
+            "austria",
+            "finland",
+            "berlin",
+            "munich",
+            "paris",
+            "amsterdam",
+            "dublin",
+            "lisbon",
+            "madrid",
+            "rome",
+            "remote europe",
+            "emea",
+        )
+    ):
+        return "EUR"
+    if "canada" in loc or "toronto" in loc or "vancouver" in loc or "montreal" in loc:
+        return "CAD"
+    if "australia" in loc or "sydney" in loc or "melbourne" in loc:
+        return "AUD"
+    if "switzerland" in loc or "zurich" in loc or "geneva" in loc:
+        return "CHF"
+    if "japan" in loc or "tokyo" in loc:
+        return "JPY"
+    if "poland" in loc or "warsaw" in loc or "krakow" in loc or "kraków" in loc:
+        return "PLN"
+    return "USD"
+
+
+def currency_symbol(code: str) -> str:
+    return {
+        "USD": "$",
+        "GBP": "£",
+        "EUR": "€",
+        "CAD": "C$",
+        "AUD": "A$",
+        "CHF": "CHF ",
+        "JPY": "¥",
+        "PLN": "zł ",
+    }.get((code or "USD").upper(), f"{code} ")
+
+
+def _format_money(amount: float, currency: str) -> str:
+    sym = currency_symbol(currency)
+    if amount >= 1000:
+        return f"{sym}{int(round(amount)):,}"
+    return f"{sym}{amount:g}"
+
+
+def salary_distribution(
+    jobs: list[Job],
+    buckets: int = 5,
+    location: str = "",
+) -> list[dict]:
+    """
+    Build a histogram from matched jobs' salary midpoints.
+
+    Uses the currency implied by the selected location (e.g. UK → GBP)
+    and only includes jobs in that currency so USD remote pay isn't mixed in.
+    """
+    preferred = currency_for_location(location)
     mids: list[float] = []
     for job in jobs:
+        cur = (job.currency or "USD").upper()
+        if cur != preferred:
+            continue
         if job.salary_min is not None and job.salary_max is not None:
             mids.append((job.salary_min + job.salary_max) / 2)
         elif job.salary_min is not None:
@@ -372,7 +454,15 @@ def salary_distribution(jobs: list[Job], buckets: int = 5) -> list[dict]:
 
     low, high = min(mids), max(mids)
     if low == high:
-        return [{"label": f"${int(low):,}", "count": len(mids), "min_salary": low, "max_salary": high}]
+        return [
+            {
+                "label": _format_money(low, preferred),
+                "count": len(mids),
+                "min_salary": low,
+                "max_salary": high,
+                "currency": preferred,
+            }
+        ]
 
     width = (high - low) / buckets
     result = []
@@ -382,24 +472,45 @@ def salary_distribution(jobs: list[Job], buckets: int = 5) -> list[dict]:
         count = sum(1 for v in mids if (start <= v <= end if i == buckets - 1 else start <= v < end))
         result.append(
             {
-                "label": f"${int(start):,}–${int(end):,}",
+                "label": f"{_format_money(start, preferred)}–{_format_money(end, preferred)}",
                 "count": count,
                 "min_salary": round(start, 2),
                 "max_salary": round(end, 2),
+                "currency": preferred,
             }
         )
     return result
 
 
-def _parse_salary_text(text: str) -> tuple[Optional[float], Optional[float]]:
-    import re
+def _parse_salary_text(text: str) -> tuple[Optional[float], Optional[float], str]:
+    """Parse free-text salary and detect currency when possible."""
+    raw = text or ""
+    upper = raw.upper()
+    currency = "USD"
+    if "£" in raw or "GBP" in upper:
+        currency = "GBP"
+    elif "€" in raw or "EUR" in upper:
+        currency = "EUR"
+    elif "CHF" in upper:
+        currency = "CHF"
+    elif "A$" in raw or "AUD" in upper:
+        currency = "AUD"
+    elif "C$" in raw or "CAD" in upper:
+        currency = "CAD"
+    elif "¥" in raw or "JPY" in upper:
+        currency = "JPY"
+    elif "$" in raw or "USD" in upper:
+        currency = "USD"
 
-    nums = [float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*", text)]
+    nums = [float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*", raw)]
+    # Treat small numbers as thousands (e.g. "80-100k")
+    if "k" in raw.lower() and nums:
+        nums = [n * 1000 if n < 1000 else n for n in nums]
     if len(nums) >= 2:
-        return nums[0], nums[1]
+        return nums[0], nums[1], currency
     if len(nums) == 1:
-        return nums[0], nums[0]
-    return None, None
+        return nums[0], nums[0], currency
+    return None, None, currency
 
 
 def _parse_iso(value: Optional[str]) -> Optional[datetime]:

@@ -175,16 +175,14 @@ CATALOG: list[ResourceOut] = [
 ]
 
 
-def _matches_skills(resource: ResourceOut, skills: set[str]) -> bool:
-    return bool(skills.intersection(resource.skills)) or not resource.skills
 
 
 def resources_for(skills: list[str], kind: str, limit: int = 6) -> list[ResourceOut]:
     skill_set = set(skills)
-    matched = [r for r in CATALOG if r.kind == kind and _matches_skills(r, skill_set)]
-    if len(matched) < limit:
-        extras = [r for r in CATALOG if r.kind == kind and r not in matched]
-        matched.extend(extras)
+    # Only return resources that actually match the focus skills — never pad with unrelated stacks
+    matched = [r for r in CATALOG if r.kind == kind and skill_set.intersection(r.skills)]
+    # Prefer resources that share more skills with the query
+    matched.sort(key=lambda r: (-len(skill_set.intersection(r.skills)), r.title))
     return matched[:limit]
 
 

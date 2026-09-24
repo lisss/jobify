@@ -4,13 +4,6 @@ export type SkillStat = {
   percentage: number;
 };
 
-export type SalaryBucket = {
-  label: string;
-  count: number;
-  min_salary: number;
-  max_salary: number;
-};
-
 export type Resource = {
   kind: string;
   title: string;
@@ -29,31 +22,14 @@ export type RoadmapStep = {
   resources: Resource[];
 };
 
-export type Job = {
-  id: number;
-  source: string;
-  title: string;
-  company: string;
-  location: string;
-  url: string;
-  salary_min?: number | null;
-  salary_max?: number | null;
-  currency: string;
-  skills: string[];
-};
-
 export type InsightsResponse = {
   query: string;
   location: string;
-  job_count: number;
-  jobs: Job[];
-  top_skills: SkillStat[];
+  requirements: SkillStat[];
   missing_skills: SkillStat[];
-  salary_distribution: SalaryBucket[];
   interview_questions: Resource[];
   books: Resource[];
   courses: Resource[];
-  github_projects: Resource[];
   certifications: Resource[];
   roadmap: RoadmapStep[];
   estimated_study_hours: number;
@@ -73,7 +49,6 @@ export async function fetchInsights(input: {
       query: input.query,
       location: input.location,
       cv_skills: input.cv_skills,
-      limit: 50,
     }),
   });
   if (!res.ok) {
@@ -98,12 +73,12 @@ export async function parseCv(file: File): Promise<string[]> {
   return data.skills;
 }
 
-export async function suggestRoles(query: string): Promise<RoleSuggestion[]> {
+export async function suggestRoles(query: string): Promise<string[]> {
   const res = await fetch(
-    `${API_URL}/api/suggest/roles?q=${encodeURIComponent(query)}&limit=8`,
+    `${API_URL}/api/suggest/roles?q=${encodeURIComponent(query)}&limit=12`,
   );
   if (!res.ok) return [];
-  const data = (await res.json()) as { suggestions: RoleSuggestion[] };
+  const data = (await res.json()) as { suggestions: string[] };
   return data.suggestions ?? [];
 }
 
@@ -115,12 +90,3 @@ export async function suggestLocations(query: string): Promise<string[]> {
   const data = (await res.json()) as { suggestions: string[] };
   return data.suggestions ?? [];
 }
-
-export type RoleSuggestion = {
-  id: number | null;
-  title: string;
-  company: string;
-  location: string;
-  url: string;
-  source: string;
-};

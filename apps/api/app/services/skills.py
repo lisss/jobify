@@ -110,6 +110,9 @@ def missing_skills(
     min_percentage: float = 20.0,
 ) -> list[tuple[str, int, float]]:
     cv_normalized = {normalize_skill(s) or s.strip() for s in cv_skills if s.strip()}
+    if not cv_normalized:
+        # No CV / skills provided — do not invent gaps
+        return []
     cv_lower = {s.lower() for s in cv_normalized}
     gaps = []
     for skill, count, pct in top_skills:

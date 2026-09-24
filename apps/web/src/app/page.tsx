@@ -9,7 +9,6 @@ import {
   suggestRoles,
 } from "@/lib/api";
 import { InsightsPanel } from "@/components/InsightsPanel";
-import { RoleTypeahead } from "@/components/RoleTypeahead";
 import { Typeahead } from "@/components/Typeahead";
 
 export default function HomePage() {
@@ -20,6 +19,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [hasCvInput, setHasCvInput] = useState(false);
 
   const loadRoles = useCallback((q: string) => suggestRoles(q), []);
   const loadLocations = useCallback((q: string) => suggestLocations(q), []);
@@ -39,6 +39,7 @@ export default function HomePage() {
         location,
         cv_skills: merged,
       });
+      setHasCvInput(merged.length > 0);
       setInsights(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -70,21 +71,21 @@ export default function HomePage() {
 
       <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-6 py-9 sm:px-9 sm:py-11">
         <h1 className="max-w-xl text-3xl font-semibold leading-tight tracking-tight text-[var(--ink)] sm:text-4xl">
-          Find the skills that actually show up in the jobs you want.
+          See what a role needs — and what to learn next.
         </h1>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-[var(--muted)] sm:text-base">
-          Search a role, compare it to your CV, and get a calm study path with
-          books, courses, and projects.
+          Pick a position to get typical requirements, then books, courses, and a
+          study roadmap. Optionally compare against your CV.
         </p>
 
         <form onSubmit={onSubmit} className="relative mt-8 space-y-4">
           <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
-            <RoleTypeahead
+            <Typeahead
               label="Role"
               value={query}
               onChange={setQuery}
               fetchSuggestions={loadRoles}
-              placeholder="e.g. React Engineer"
+              placeholder="e.g. Software Engineer"
               required
             />
             <Typeahead
@@ -93,6 +94,7 @@ export default function HomePage() {
               onChange={setLocation}
               fetchSuggestions={loadLocations}
               placeholder="Remote, Berlin…"
+              footerHint="Type to narrow cities worldwide"
             />
             <div className="flex items-end">
               <button
@@ -143,7 +145,7 @@ export default function HomePage() {
 
       {insights && (
         <div className="animate-fade mt-12">
-          <InsightsPanel data={insights} />
+          <InsightsPanel data={insights} showCvGaps={hasCvInput} />
         </div>
       )}
     </main>

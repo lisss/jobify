@@ -10,7 +10,13 @@ import httpx
 from sqlmodel import Session
 
 from app.core.config import get_settings
-from app.services.jobs import _parse_iso, _parse_salary_text, _upsert_job, seniority_rank
+from app.services.jobs import (
+    _parse_iso,
+    _parse_salary_text,
+    _upsert_job,
+    currency_for_location,
+    seniority_rank,
+)
 
 USER_AGENT = "Jobify/0.1 (+local; job-aggregator)"
 
@@ -159,7 +165,7 @@ async def _collect_remotive(client: httpx.AsyncClient, query: str, limit: int) -
             if query and not title_matches_query(query, title):
                 continue
             seen.add(ext)
-            salary_min, salary_max = _parse_salary_text(item.get("salary") or "")
+            salary_min, salary_max, sal_currency = _parse_salary_text(item.get("salary") or "")
             payloads.append(
                 {
                     "external_id": ext,
@@ -171,7 +177,7 @@ async def _collect_remotive(client: httpx.AsyncClient, query: str, limit: int) -
                     "url": job_url,
                     "salary_min": salary_min,
                     "salary_max": salary_max,
-                    "currency": "USD",
+                    "currency": sal_currency,
                     "posted_at": _parse_iso(item.get("publication_date")),
                 }
             )
@@ -304,6 +310,32 @@ async def _collect_adzuna(client: httpx.AsyncClient, query: str, location: str, 
     if not settings.adzuna_app_id or not settings.adzuna_app_key:
         return []
 
+    currency = currency_for_location(location)
+    country = {
+        "GBP": "gb",
+        "EUR": "de",
+        "CAD": "ca",
+        "AUD": "au",
+        "USD": "us",
+    }.get(currency, "us")
+    # Prefer Ireland/NL endpoints when location hints at them
+    loc = (location or "").lower()
+    if "ireland" in loc or "dublin" in loc:
+        country = "ie"
+        currency = "EUR"
+    elif "netherlands" in loc or "amsterdam" in loc:
+        country = "nl"
+        currency = "EUR"
+    elif "france" in loc or "paris" in loc:
+        country = "fr"
+        currency = "EUR"
+    elif "germany" in loc or "berlin" in loc or "munich" in loc:
+        country = "de"
+        currency = "EUR"
+    elif "poland" in loc or "warsaw" in loc:
+        country = "pl"
+        currency = "PLN"
+
     params = {
         "app_id": settings.adzuna_app_id,
         "app_key": settings.adzuna_app_key,
@@ -315,7 +347,11 @@ async def _collect_adzuna(client: httpx.AsyncClient, query: str, location: str, 
         params["where"] = location
 
     try:
-        data = await _get_json(client, "https://api.adzuna.com/v1/api/jobs/us/search/1", params=params)
+        data = await _get_json(
+            client,
+            f"https://api.adzuna.com/v1/api/jobs/{country}/search/1",
+            params=params,
+        )
     except Exception:
         return []
 
@@ -338,7 +374,7 @@ async def _collect_adzuna(client: httpx.AsyncClient, query: str, location: str, 
                 "url": job_url,
                 "salary_min": item.get("salary_min"),
                 "salary_max": item.get("salary_max"),
-                "currency": "USD",
+                "currency": currency,
                 "posted_at": _parse_iso(item.get("created")),
             }
         )

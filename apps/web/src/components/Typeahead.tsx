@@ -17,6 +17,7 @@ type TypeaheadProps = {
   placeholder?: string;
   required?: boolean;
   id?: string;
+  footerHint?: string;
 };
 
 export function Typeahead({
@@ -27,6 +28,7 @@ export function Typeahead({
   placeholder,
   required,
   id,
+  footerHint,
 }: TypeaheadProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
@@ -151,9 +153,9 @@ export function Typeahead({
               {item}
             </li>
           ))}
-          {!loading && items.length > 0 && (
+          {!loading && items.length > 0 && footerHint && (
             <li className="border-t border-[var(--line)] px-3.5 py-2 text-xs text-[var(--muted)]">
-              Type to narrow cities worldwide
+              {footerHint}
             </li>
           )}
         </ul>
