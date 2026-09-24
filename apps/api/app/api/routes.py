@@ -50,7 +50,7 @@ def insights(body: InsightsRequest) -> InsightsResponse:
     reqs = requirements_for_role(body.query)
     top = [(skill, 1, pct) for skill, pct in reqs]
     stack = [s for s in (canonicalize_cv_skill(x) for x in body.cv_skills) if s]
-    matched, unmatched = classify_cv_against_requirements(top, body.cv_skills)
+    matched, partial, unmatched = classify_cv_against_requirements(top, body.cv_skills)
     gaps = missing_skills(top, body.cv_skills, min_percentage=0.0)
     gap_names = [skill for skill, _, _ in gaps]
 
@@ -62,6 +62,7 @@ def insights(body: InsightsRequest) -> InsightsResponse:
         location=body.location,
         requirements=[SkillStat(skill=s, count=1, percentage=p) for s, p in reqs],
         matched_skills=matched,
+        partial_skills=partial,
         missing_skills=[SkillStat(skill=s, count=c, percentage=p) for s, c, p in gaps],
         unmatched_cv_skills=unmatched,
         interview_questions=bundle["interview_questions"],

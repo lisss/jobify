@@ -75,10 +75,37 @@ export function InsightsPanel({
 }) {
   const maxImportance = Math.max(...data.requirements.map((s) => s.percentage), 1)
   const matched = new Set(data.matched_skills ?? [])
+  const partial = new Set(data.partial_skills ?? [])
   const stackSkills = [
     ...(data.matched_skills ?? []),
     ...(data.unmatched_cv_skills ?? []),
   ]
+
+  function coverageOf(skill: string): 'covered' | 'partial' | 'missing' | null {
+    if (!showCvGaps) return null
+    if (matched.has(skill)) return 'covered'
+    if (partial.has(skill)) return 'partial'
+    return 'missing'
+  }
+
+  function coverageLabel(status: 'covered' | 'partial' | 'missing') {
+    if (status === 'covered') return 'covered'
+    if (status === 'partial') return 'partial'
+    return 'missing'
+  }
+
+  function coverageColor(status: 'covered' | 'partial' | 'missing' | null) {
+    if (status === 'covered') return 'var(--ok)'
+    if (status === 'partial') return 'var(--partial)'
+    if (status === 'missing') return 'var(--missing)'
+    return 'var(--accent)'
+  }
+
+  function coverageTextClass(status: 'covered' | 'partial' | 'missing') {
+    if (status === 'covered') return 'text-[var(--ok)]'
+    if (status === 'partial') return 'text-[var(--partial)]'
+    return 'text-[var(--missing)]'
+  }
 
   return (
     <div className="space-y-10">
@@ -107,24 +134,22 @@ export function InsightsPanel({
           <SectionTitle prominent>Role requirements</SectionTitle>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {showCvGaps
-              ? 'Typical skills for this position. Covered means you already listed them.'
+              ? 'Green = covered, yellow = related skill, red = still missing.'
               : 'Typical skills for this position, ranked by importance.'}
           </p>
           <ul className="mt-4 space-y-3">
             {data.requirements.map((skill) => {
-              const covered = showCvGaps && matched.has(skill.skill)
+              const status = coverageOf(skill.skill)
               return (
                 <li key={skill.skill}>
                   <div className="mb-1 flex justify-between gap-3 text-sm">
                     <span className="font-medium">
                       {skill.skill}
-                      {showCvGaps && (
+                      {status && (
                         <span
-                          className={`ml-2 text-xs font-normal ${
-                            covered ? 'text-[var(--ok)]' : 'text-[var(--muted)]'
-                          }`}
+                          className={`ml-2 text-xs font-normal ${coverageTextClass(status)}`}
                         >
-                          {covered ? 'covered' : 'gap'}
+                          {coverageLabel(status)}
                         </span>
                       )}
                     </span>
@@ -132,10 +157,11 @@ export function InsightsPanel({
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-soft)]">
                     <div
-                      className={`skill-bar h-full rounded-full ${
-                        covered ? 'bg-[var(--ok)]' : 'bg-[var(--accent)]'
-                      }`}
-                      style={{ width: `${(skill.percentage / maxImportance) * 100}%` }}
+                      className="skill-bar h-full rounded-full"
+                      style={{
+                        width: `${(skill.percentage / maxImportance) * 100}%`,
+                        backgroundColor: coverageColor(status),
+                      }}
                     />
                   </div>
                 </li>

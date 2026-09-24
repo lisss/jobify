@@ -39,6 +39,7 @@ class InsightsResponse(BaseModel):
     # Position requirements (importance in `percentage`)
     requirements: list[SkillStat]
     matched_skills: list[str] = Field(default_factory=list)
+    partial_skills: list[str] = Field(default_factory=list)
     missing_skills: list[SkillStat]
     unmatched_cv_skills: list[str] = Field(default_factory=list)
     interview_questions: list[ResourceOut]
