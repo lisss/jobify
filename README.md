@@ -63,3 +63,4 @@ Optional: set `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` for live Adzuna jobs. Remotive 
 - Salary distribution
 - Books, courses, GitHub repos, certifications, interview prompts
 - Learning roadmap + estimated study time
+# jobify
