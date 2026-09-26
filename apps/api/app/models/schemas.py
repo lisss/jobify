@@ -33,6 +33,11 @@ class InsightsRequest(BaseModel):
     cv_skills: list[str] = Field(default_factory=list)
 
 
+class SkillsForRoleRequest(BaseModel):
+    role: str = Field(min_length=1)
+    skills: list[str] = Field(default_factory=list)
+
+
 class InsightsResponse(BaseModel):
     query: str
     location: str

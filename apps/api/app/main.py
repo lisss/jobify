@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.core.config import get_settings
 from app.core.db import engine, init_db
+from app.models import cv_upload as _cv_upload  # noqa: F401 — register table
+from app.models import job as _job  # noqa: F401 — register table
 from app.services.jobs import seed_sample_jobs
 from sqlmodel import Session
 

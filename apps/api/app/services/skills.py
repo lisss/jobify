@@ -204,3 +204,49 @@ def missing_skills(
         if skill.lower() not in covered:
             gaps.append((skill, count, pct))
     return gaps
+
+def relevant_skills_for_role(
+    role_requirements: list[tuple[str, float]] | list[tuple[str, int, float]],
+    cv_skills: list[str],
+    *,
+    role_title: str = "",
+) -> list[str]:
+    """Keep only CV skills that match the role (exact or related family)."""
+    allowed_lower: set[str] = set()
+    display_for: dict[str, str] = {}
+
+    for row in role_requirements:
+        skill = row[0]
+        allowed_lower.add(skill.lower())
+        display_for[skill.lower()] = skill
+        for mate in _family_mates(skill):
+            allowed_lower.add(mate.lower())
+            display_for.setdefault(mate.lower(), mate)
+
+    for skill in extract_skills(role_title):
+        allowed_lower.add(skill.lower())
+        display_for[skill.lower()] = skill
+        for mate in _family_mates(skill):
+            allowed_lower.add(mate.lower())
+            display_for.setdefault(mate.lower(), mate)
+
+    if not allowed_lower:
+        return []
+
+    kept: list[str] = []
+    seen: set[str] = set()
+    for raw in cv_skills:
+        canonical = canonicalize_cv_skill(raw)
+        if not canonical:
+            continue
+        key = canonical.lower()
+        if key not in allowed_lower:
+            mates = {m.lower() for m in _family_mates(canonical)}
+            if not (mates & allowed_lower):
+                continue
+        display = display_for.get(key, canonical)
+        if display.lower() in seen:
+            continue
+        seen.add(display.lower())
+        kept.append(display)
+    return kept
