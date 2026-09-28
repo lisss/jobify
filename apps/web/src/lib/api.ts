@@ -24,7 +24,7 @@ export type RoadmapStep = {
 
 export type InsightsResponse = {
   query: string
-  location: string
+  location?: string
   requirements: SkillStat[]
   matched_skills: string[]
   partial_skills: string[]
@@ -58,7 +58,6 @@ export function cvDownloadUrl(): string {
 
 export async function fetchInsights(input: {
   query: string
-  location: string
   cv_skills: string[]
 }): Promise<InsightsResponse> {
   const res = await fetch(`${API_URL}/api/insights`, {
@@ -66,7 +65,6 @@ export async function fetchInsights(input: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query: input.query,
-      location: input.location,
       cv_skills: input.cv_skills,
     }),
     ...withSession,
@@ -140,16 +138,6 @@ export async function filterSkillsForRole(
 export async function suggestRoles(query: string): Promise<string[]> {
   const res = await fetch(
     `${API_URL}/api/suggest/roles?q=${encodeURIComponent(query)}&limit=12`,
-    withSession,
-  )
-  if (!res.ok) return []
-  const data = (await res.json()) as { suggestions: string[] }
-  return data.suggestions ?? []
-}
-
-export async function suggestLocations(query: string): Promise<string[]> {
-  const res = await fetch(
-    `${API_URL}/api/suggest/locations?q=${encodeURIComponent(query)}&limit=50`,
     withSession,
   )
   if (!res.ok) return []

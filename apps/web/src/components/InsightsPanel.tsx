@@ -113,7 +113,6 @@ export function InsightsPanel({
         <p className="text-sm text-[var(--muted)]">Position</p>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           {data.query}
-          {data.location ? ` · ${data.location}` : ''}
         </h2>
       </div>
 

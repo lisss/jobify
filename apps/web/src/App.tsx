@@ -8,7 +8,6 @@ import {
   fetchInsights,
   filterSkillsForRole,
   parseCv,
-  suggestLocations,
   suggestRoles,
 } from '@/lib/api'
 import { InsightsPanel } from '@/components/InsightsPanel'
@@ -16,7 +15,6 @@ import { Typeahead } from '@/components/Typeahead'
 
 export default function App() {
   const [query, setQuery] = useState('')
-  const [location, setLocation] = useState('')
   const [cvText, setCvText] = useState('')
   /** Full skill list from the last CV upload — re-filtered whenever role changes. */
   const [cvAllSkills, setCvAllSkills] = useState<string[]>([])
@@ -31,7 +29,6 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadRoles = useCallback((q: string) => suggestRoles(q), [])
-  const loadLocations = useCallback((q: string) => suggestLocations(q), [])
 
   function skillsFromTextarea(text: string): string[] {
     return Array.from(
@@ -101,7 +98,6 @@ export default function App() {
       const skills = skillsFromTextarea(cvText)
       const data = await fetchInsights({
         query,
-        location,
         cv_skills: skills,
       })
       setHasCvInput(skills.length > 0)
@@ -177,7 +173,7 @@ export default function App() {
         </p>
 
         <form onSubmit={onSubmit} className="relative mt-8 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr_auto]">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <Typeahead
               label="Role"
               value={query}
@@ -185,14 +181,6 @@ export default function App() {
               fetchSuggestions={loadRoles}
               placeholder="e.g. Software Engineer"
               required
-            />
-            <Typeahead
-              label="Location"
-              value={location}
-              onChange={setLocation}
-              fetchSuggestions={loadLocations}
-              placeholder="Remote, Berlin…"
-              footerHint="Type to narrow cities worldwide"
             />
             <div className="flex items-end">
               <button
