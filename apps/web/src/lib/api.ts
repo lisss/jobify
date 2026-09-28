@@ -47,7 +47,9 @@ export type StoredCv = {
   all_skills: string[]
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? 'http://localhost:8001' : '')
 
 /** Session cookie must travel with CV requests. */
 const withSession: RequestInit = { credentials: 'include' }
